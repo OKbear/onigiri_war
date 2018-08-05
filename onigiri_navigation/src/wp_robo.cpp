@@ -1,6 +1,7 @@
 #include "wp_robo.h"
 
-#define GAIN_CHASE -0.005
+#define GAIN_CHASE -0.007
+#define PNT_START_CHASE 10
 
 MyPose way_point[] = {
     {1.700,  0.001,  0.000, true},
@@ -9,9 +10,13 @@ MyPose way_point[] = {
     {1.900, -0.757, -3.140, false},
     {1.640, -0.747, -3.140, true},
     {2.150, -0.650,  1.548, true},
+    {1.965, -1.345,  0.027, false},
+    {2.985, -1.115,  0.860, false},
+/*
     {2.479, -0.702, -0.023, true},
     {2.660, -0.721,  0.000, false},
     {2.399, -1.516,  0.800, false},
+*/
 /* ボツ
     {0.162,  0.112,  0.774, false},
     {0.838,  0.805,  0.819, false},
@@ -99,13 +104,13 @@ void RoboCtrl::moveRobo()
         }
         else if (tickdbl <= 2.0)
         {
-            front_speed_ = 0.2;
+            front_speed_ = 0.3;
             turn_speed_ = diff_position_ * GAIN_CHASE;
             ROS_INFO("CHASE PHASE(2) %f", tickdbl);
         }
         else if (tickdbl > 2.0)
         {
-            front_speed_ = 0.6;
+            front_speed_ = 0.7;
             turn_speed_ = diff_position_ * GAIN_CHASE;
             ROS_INFO("CHASE PHASE(3) %f", tickdbl);
         }
@@ -197,7 +202,7 @@ void RoboCtrl::checkWaypoint()
                 if( ++NG_COUNT < 2 ){
                     // 到着できなかった場合は撤退動作を行う
                     time_retreat = ros::Time::now();
-                    state_ = STATE_RETREAT;
+                    //state_ = STATE_RETREAT;
                 }
                 else {
                     ROS_INFO("NO MORE WAYPOINT!!!");
