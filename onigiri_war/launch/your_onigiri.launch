@@ -5,8 +5,8 @@
 
 
 
-    <!-- sample program  -->
-    <node pkg="onigiri_war" type="randomRun.py" name="randomRun" output="screen"/>
+    <!-- Robot Control -->
+    <node pkg="onigiri_navigation" type="wp_robo" name="robo_ctrl" output="screen"/>
 
 
 

@@ -1,56 +1,60 @@
 #include "wp_robo.h"
 
-#define GAIN_CHASE -0.01
-#define PNT_START_CHASE 16
+#define GAIN_CHASE -0.005
 
 MyPose way_point[] = {
-    {0.858,  0.743,  0.005},
-    {0.843,  0.095, -0.730},
-    {1.506, -0.009, -0.021},
-    {1.393,  0.329,  0.287},
-    {2.035,  0.698,  0.005},
-    {2.236,  0.742, -0.016},
-    {2.386,  0.650, -0.545},
-/*   {1.923, 1.082, -1.551},
-    {1.923, 1.082, 0.039},
-    {1.923, 1.082, -2.529},
-    //{ 1.035,  0.233,  0.000},
-    {1.035, 0.233, -0.720},
-    {1.980, -0.604, 0.116},
-    {1.980, -0.604, 1.624},
-    {1.980, -0.604, -3.135},
-    {1.980, -0.604, 0.740},
-    {2.584, 0.417, -3.133},
-    {2.584, 0.417, 2.300},
-    {1.923, 1.082, -2.970},
-    {1.923, 1.082, -1.551},
-    {1.923, 1.082, 0.039},
-    {1.923, 1.082, -2.529},
-    {1.035, 0.233, 0.000},
-    {1.035, 0.233, -0.720},
-    {1.980, -0.604, 0.116},
-    {1.980, -0.604, 1.624},
-    {1.980, -0.604, -3.135},
-    {1.980, -0.604, 0.116},*/
-    {999, 999, 999}};
+    {1.700,  0.001,  0.000, true},
+    {1.700, -0.636, -0.991, false},
+    {1.921, -0.750, -0.774, false},
+    {1.900, -0.757, -3.140, false},
+    {1.640, -0.747, -3.140, true},
+    {2.150, -0.650,  1.548, true},
+    {2.479, -0.702, -0.023, true},
+    {2.660, -0.721,  0.000, false},
+    {2.399, -1.516,  0.800, false},
+/* ボツ
+    {0.162,  0.112,  0.774, false},
+    {0.838,  0.805,  0.819, false},
+    {1.026,  0.794, -0.021, true},
+    {0.773,  0.648, -0.794, false},
+    {0.943, -0.005, -0.989, false},
+    {1.320,  0.012,  0.005, false},
+    {1.541,  0.000, -0.052, true},
+    {1.331, -0.038, -2.385, false},
+    {0.706, -0.440, -1.740, false},
+    {0.850, -0.797, -0.813, false},
+    {1.017, -0.778, -0.004, true},
+    {0.950, -0.009,  0.583, false},
+    {1.266,  0.040,  0.782, false},
+    {1.308, -0.040, -0.921, false},
+    {1.985, -0.802, -0.708, false},
+    {2.035, -0.776,  1.593, false},
+    {2.033, -0.636, -2.949, false},
+    {1.614, -0.719, -3.049, true},
+    {1.977, -0.754,  0.006, false},
+*/
 
-RoboCtrl::RoboCtrl() : it_(node), ac("move_base", true)
+    {999, 999, 999, false}};
+
+RoboCtrl::RoboCtrl() : it_(node), ac("/move_base", true)
 {
     ros::NodeHandle node;
 
     //購読するtopic名
-    image_sub_ = it_.subscribe("/red_bot/camera/image_raw", 1, &RoboCtrl::imageCb, this);
+    image_sub_ = it_.subscribe("camera/image_raw", 1, &RoboCtrl::imageCb, this);
 
     //配布するtopic名
-    twist_pub_ = node.advertise<geometry_msgs::Twist>("/red_bot/cmd_vel", 1);
+    twist_pub_ = node.advertise<geometry_msgs::Twist>("cmd_vel", 1);
 
     //内部関数初期化
-    m_frontspeed = 0.5;
-    m_turnspeed = 0.0;
-    m_diffPos = 0.0;
+    front_speed_ = 0.5;
+    turn_speed_ = 0.0;
+    diff_position_ = 0.0;
+
+    time_idle = ros::Time::now();
 
     // まず最初はウェイポイント
-    m_state = STATE_WAYPOINT;
+    state_ = STATE_WAYPOINT;
 
     initWaypoint();
     cv::namedWindow(OPENCV_WINDOW);
@@ -71,8 +75,8 @@ void RoboCtrl::initWaypoint()
     }
 
     ROS_INFO("The server comes up");
-    m_isSent = false;
-    m_destPnt = 0;
+    is_wp_sent_ = false;
+    dest_point_ = 0;
 }
 
 void RoboCtrl::moveRobo()
@@ -83,81 +87,148 @@ void RoboCtrl::moveRobo()
     checkWaypoint();
 
     // STATE_CHASEの場合 P制御で追いかける
-    if (m_state == STATE_CHASE)
+    if (state_ == STATE_CHASE)
     {
-        ros::Duration tick = ros::Time::now() - m_timechasestr;
+        ros::Duration tick = ros::Time::now() - time_approach_run_;
         double tickdbl = tick.toSec();
-        if (tickdbl <= 8.0)
+        if (tickdbl <= 1.0)
         {
-            m_frontspeed = 0.1;
-            m_turnspeed = m_diffPos * GAIN_CHASE;
+            front_speed_ = 0.0;
+            turn_speed_ = diff_position_ * GAIN_CHASE;
             ROS_INFO("CHASE PHASE(1) %f", tickdbl);
         }
-        else if (tickdbl <= 16.0)
+        else if (tickdbl <= 2.0)
         {
-            m_frontspeed = 0.0;
-            m_turnspeed = m_diffPos * GAIN_CHASE;
+            front_speed_ = 0.2;
+            turn_speed_ = diff_position_ * GAIN_CHASE;
             ROS_INFO("CHASE PHASE(2) %f", tickdbl);
         }
-        else if (tickdbl > 16.0)
-            m_frontspeed = 0.0;
-        m_turnspeed = -m_diffPos * GAIN_CHASE;
-        ROS_INFO("CHASE PHASE(3) %f", tickdbl);
+        else if (tickdbl > 2.0)
+        {
+            front_speed_ = 0.6;
+            turn_speed_ = diff_position_ * GAIN_CHASE;
+            ROS_INFO("CHASE PHASE(3) %f", tickdbl);
+        }
+        ROS_INFO("みっけ〜〜〜♪");
     }
 
-    // ウェイポイント終わったらSTATE_IDLEにしてその場で回る
-    if (m_state == STATE_IDLE)
+    if (state_ == STATE_RETREAT)
     {
-        m_frontspeed = 0.0;
-        m_turnspeed = 0.5;
+        ros::Duration tick = ros::Time::now() - time_retreat;
+        double tickdbl = tick.toSec();
+        double rand_spd = -(rand() % 3) / 10.0;
+        static double sign = 1;
+        sign *= -1;
+        if (tickdbl <= 1.0)
+        {
+            front_speed_ = rand_spd;
+            turn_speed_ = sign * rand_spd;
+            ROS_INFO("RETREAT PHASE(1) %f", tickdbl);
+        }
+        else if (tickdbl > 1.0)
+        {
+            front_speed_ = 0.0;
+            front_speed_ = 0.0;
+            state_ = STATE_WAYPOINT;
+        }
     }
 
-    ROS_INFO("NOW %d", m_state);
-    ROS_INFO("diff %f", m_diffPos);
+    if (state_ == STATE_BACK)
+    {
+        ros::Duration tick = ros::Time::now() - time_back;
+        double tickdbl = tick.toSec();
+        if (tickdbl <= 2.0)
+        {
+            front_speed_ = -0.2;
+            turn_speed_ = 0.0;
+        }
+        else if (tickdbl > 2.0)
+        {
+            front_speed_ = 0.0;
+            front_speed_ = 0.0;
+            state_ = STATE_WAYPOINT;
+        }
+            
+    }
+    // ウェイポイント終わったらSTATE_IDLEにしてその場で回る
+    if (state_ == STATE_IDLE)
+    {
+        if( ros::Time::now() - time_idle > ros::Duration(2.0))
+        {
+            front_speed_= (rand() % 4 - 2) / 10.0;
+            turn_speed_ = (rand() % 10 - 5) / 2.0;
+            time_idle = ros::Time::now();
+        }
+    }
+
+    ROS_INFO("Current State: %s", getStateByString(state_).c_str());
+    ROS_INFO("Position Diff: %f", diff_position_);
 
     //ROS速度データに内部関数値を代入
-    if (m_state == STATE_CHASE || m_state == STATE_IDLE)
+    if (state_ != STATE_WAYPOINT)
     {
-        twist.linear.x = m_frontspeed;
-        twist.angular.z = m_turnspeed;
-        //twist_pub_.publish(twist);
+        twist.linear.x = front_speed_;
+        twist.angular.z = turn_speed_;
+        twist_pub_.publish(twist);
     }
 }
 
 void RoboCtrl::checkWaypoint()
 {
+    static int NG_COUNT = 0;
+
     // ウェイポイント送信済みか？
-    if (m_isSent)
+    if (is_wp_sent_)
     {
         // ウェイポイント送信済みなら到着結果の確認をする
-        // 追跡モード中はm_isSentはfalseなので確認しない
+        // 追跡モード中はis_wp_sent_はfalseなので確認しない
         bool isSucceeded = ac.waitForResult(ros::Duration(0.5));
         // 結果を見て、成功ならSucceeded、失敗ならFailedと表示
         actionlib::SimpleClientGoalState state = ac.getState();
 
-        // 到着済みか?
+        // 到着済みもしくは到着タイムアウトか?
         if (isSucceeded)
         {
-            // 到着済みなら次の点を送信する
-            m_isSent = false;
-            ROS_INFO("WP Reached: No.%d (%s)", m_destPnt + 1, state.toString().c_str());
-            ros::Duration(1.0).sleep();
-            sendWaypoint(++m_destPnt);
+            is_wp_sent_ = false;
+            ROS_INFO("WP Arrived: No.%d (%s)", dest_point_ + 1, state.toString().c_str());
+
+            if(state == actionlib::SimpleClientGoalState::ABORTED)
+            {
+                if( ++NG_COUNT < 2 ){
+                    // 到着できなかった場合は撤退動作を行う
+                    time_retreat = ros::Time::now();
+                    state_ = STATE_RETREAT;
+                }
+                else {
+                    ROS_INFO("NO MORE WAYPOINT!!!");
+                    state_ = STATE_IDLE;
+                }
+            }
+            else
+            {
+                NG_COUNT = 0;
+                time_back = ros::Time::now();
+                ros::Duration(0.5).sleep();
+
+                if( way_point[dest_point_].is_checkpoint )
+                {
+                    state_ = STATE_BACK;
+                }
+                ++dest_point_;
+            }
         }
         else
         {
             // 到着してないなら何もしない
-            ROS_INFO("WP not reached: No.%d (%s)", m_destPnt + 1, state.toString().c_str());
+            ROS_INFO("WP Not Arrived: No.%d (%s)", dest_point_ + 1, state.toString().c_str());
         }
     }
     else
     {
         // ウェイポイント送信済みでない場合
-        if (m_state == STATE_WAYPOINT)
+        if (state_ == STATE_WAYPOINT)
         {
-            // STATE_WAYPOINTのときウェイポイント送信(初回時やSTATE_CHASEから復帰時)
-            // STATE_CHASE, STATE_IDLEでは何もしない)
-            sendWaypoint(m_destPnt);
+            sendWaypoint(dest_point_);
         }
     }
 }
@@ -177,7 +248,7 @@ void RoboCtrl::sendWaypoint(int n_ptr)
     // 最終ウェイポイントに達したらSTATE_IDLEに遷移して抜ける。
     if (goal.target_pose.pose.position.x == 999)
     {
-        m_state = STATE_IDLE;
+        state_ = STATE_IDLE;
         return;
     }
 
@@ -189,7 +260,7 @@ void RoboCtrl::sendWaypoint(int n_ptr)
     // サーバーにgoalを送信
     ac.sendGoal(goal);
 
-    m_isSent = true;
+    is_wp_sent_ = true;
 }
 
 void RoboCtrl::cancelWaypoint()
@@ -199,7 +270,7 @@ void RoboCtrl::cancelWaypoint()
     ROS_INFO("WAYPOINT CANCELED. START CHASING!!");
 
     // STATE_WAYPOINT復帰時にウェイポイントを送り直すようにしておく
-    m_isSent = false;
+    is_wp_sent_ = false;
 }
 
 void RoboCtrl::odomCallback(const nav_msgs::Odometry &odom)
@@ -209,9 +280,9 @@ void RoboCtrl::odomCallback(const nav_msgs::Odometry &odom)
 
 void RoboCtrl::imageCb(const sensor_msgs::ImageConstPtr &msg)
 {
-    const int centerpnt = 320;
+    const int centerpnt = 200;
     const int range = 10;
-    static EState laststate = m_state;
+    static EState laststate = state_;
 
     cv_bridge::CvImagePtr cv_ptr;
     try
@@ -234,36 +305,48 @@ void RoboCtrl::imageCb(const sensor_msgs::ImageConstPtr &msg)
     double area = mu.m00;
     int x = mu.m10 / mu.m00;
     int y = mu.m01 / mu.m00;
-    ROS_INFO("AREA = %f", area);
+    ROS_INFO("AREA: %f", area);
 
-    if ((x >= 0) && (x <= 640) && (area > 500000) && (m_destPnt >= PNT_START_CHASE))
+    if ((x >= 0) && (x <= 400) && (area > 40000) )
     {
         // 敵が見つかったら追跡する
-        m_diffPos = x - centerpnt;
+        diff_position_ = x - centerpnt;
 
         // STATE_CHASEに入る前の状態を保存
-        switch (m_state)
+        switch (state_)
         {
         case STATE_WAYPOINT:
             cancelWaypoint();
-        case STATE_IDLE:
-            laststate = m_state;
-            m_timechasestr = ros::Time::now();
+            laststate = STATE_IDLE;
             break;
+
+        case STATE_IDLE:
+            laststate = STATE_IDLE;
+            time_approach_run_ = ros::Time::now();
+            break;
+
+        case STATE_RETREAT:
+            laststate = STATE_IDLE;
+            break;
+
+        case STATE_BACK:
+            laststate = STATE_IDLE;
+            break;
+
         default:
             break;
         }
         // STATE_CHASEに遷移
-        m_state = STATE_CHASE;
+        state_ = STATE_CHASE;
     }
     else
     {
         // 敵を見失う or そもそも敵を見つけていない場合
-        m_diffPos = 0;
+        diff_position_ = 0;
         // STATE_CHASEに入る前の状態を戻す
-        if (m_state == STATE_CHASE)
+        if (state_ == STATE_CHASE)
         {
-            m_state = laststate;
+            state_ = laststate;
         }
     }
 
@@ -272,6 +355,29 @@ void RoboCtrl::imageCb(const sensor_msgs::ImageConstPtr &msg)
     // Update GUI Window
     cv::imshow(OPENCV_WINDOW, mask);
     cv::waitKey(3);
+}
+
+std::string RoboCtrl::getStateByString(EState state){
+    switch( state ) {
+        case STATE_IDLE:
+            return "IDLE";
+            break;
+        case STATE_WAYPOINT:
+            return "WAY POINT";
+            break;
+        case STATE_CHASE:
+            return "CHASE";
+            break;
+        case STATE_RETREAT:
+            return "RETREAT";
+            break;
+        case STATE_BACK:
+            return "BACK";
+            break;
+        default:
+            return "UNKNOWN STATE";
+            break;
+    }
 }
 
 int main(int argc, char **argv)

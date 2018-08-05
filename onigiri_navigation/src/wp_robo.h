@@ -5,6 +5,7 @@
 #include <termios.h>
 #include <stdio.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/LaserScan.h>
 #include <nav_msgs/Odometry.h>
@@ -30,6 +31,7 @@ struct MyPose
     double x;
     double y;
     double yaw;
+    bool is_checkpoint;
 };
 
 class RoboCtrl
@@ -40,7 +42,8 @@ protected:
         STATE_IDLE = 0,
         STATE_WAYPOINT = 1,
         STATE_CHASE = 2,
-        STATE_TELEOP = 3,
+        STATE_RETREAT = 3,
+        STATE_BACK = 4,
     };
 
     ros::NodeHandle node;
@@ -61,17 +64,20 @@ protected:
     image_transport::ImageTransport it_;
     image_transport::Subscriber image_sub_;
 
-    EState m_state;
+    EState state_;
 
     // ロボット制御用
-    double m_diffPos;
-    double m_frontspeed;
-    double m_turnspeed;
-    ros::Time m_timechasestr;
+    double diff_position_;
+    double front_speed_;
+    double turn_speed_;
+    ros::Time time_approach_run_;
+    ros::Time time_retreat;
+    ros::Time time_back;
+    ros::Time time_idle;
 
     // ウェイポイント制御用
-    int m_destPnt;
-    bool m_isSent;
+    int dest_point_;
+    bool is_wp_sent_;
     MoveBaseClient ac;
 
   public:
@@ -101,6 +107,8 @@ protected:
 
     // OpenCVの画像受信コールバック関数
     void imageCb(const sensor_msgs::ImageConstPtr &msg);
+
+    std::string getStateByString(EState state);
 };
 
 #endif

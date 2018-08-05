@@ -7,7 +7,7 @@
   <param name="robot_description" command="$(arg urdf_file)" /> -->
   
   <!-- tf -->
-  <!--<node pkg="tf" type="static_transform_publisher" name="base_frame_2_laser_link" args="0.0 0 0 3.14 0 0 red_bot/base_link red_bot/laser 100" />-->
+  <!-- <node pkg="tf" type="static_transform_publisher" name="base_frame_2_laser_link" args="0.0 0 0 3.14 0 0 red_bot/base_link red_bot/laser 100" /> -->
 
   <!-- Map server -->
   <arg name="map_file" default="$(find onigiri_navigation)/maps/map.yaml"/>
@@ -32,8 +32,7 @@
     <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
     <remap from="odom" to="$(arg odom_topic)"/>
   </node>
-  <!-- Robot Control -->
-  <node pkg="onigiri_navigation" type="wp_robo" name="robo_ctrl" output="screen"/>
+
 
 
 </launch>
