@@ -1,7 +1,7 @@
 #include "wp_robo.h"
 
 #define GAIN_CHASE -0.007
-#define PNT_START_CHASE 10
+#define PNT_START_CHASE 9
 
 MyPose way_point[] = {
     {1.700,  0.001,  0.000, true},
@@ -11,7 +11,8 @@ MyPose way_point[] = {
     {1.640, -0.747, -3.140, true},
     {2.150, -0.650,  1.548, true},
     {1.965, -1.345,  0.027, false},
-    {2.985, -1.115,  0.860, false},
+    {3.000, -1.115,  0.860, false},
+    {3.345, -0.825,  0.387, false},
 /*
     {2.479, -0.702, -0.023, true},
     {2.660, -0.721,  0.000, false},
@@ -117,6 +118,7 @@ void RoboCtrl::moveRobo()
         ROS_INFO("みっけ〜〜〜♪");
     }
 
+    /* ここは入らない */
     if (state_ == STATE_RETREAT)
     {
         ros::Duration tick = ros::Time::now() - time_retreat;
@@ -180,8 +182,6 @@ void RoboCtrl::moveRobo()
 
 void RoboCtrl::checkWaypoint()
 {
-    static int NG_COUNT = 0;
-
     // ウェイポイント送信済みか？
     if (is_wp_sent_)
     {
@@ -199,19 +199,12 @@ void RoboCtrl::checkWaypoint()
 
             if(state == actionlib::SimpleClientGoalState::ABORTED)
             {
-                if( ++NG_COUNT < 2 ){
-                    // 到着できなかった場合は撤退動作を行う
-                    time_retreat = ros::Time::now();
-                    //state_ = STATE_RETREAT;
-                }
-                else {
-                    ROS_INFO("NO MORE WAYPOINT!!!");
-                    state_ = STATE_IDLE;
-                }
+                
+                ROS_INFO("NO MORE WAYPOINT!!!");
+                state_ = STATE_IDLE;
             }
             else
             {
-                NG_COUNT = 0;
                 time_back = ros::Time::now();
                 ros::Duration(0.5).sleep();
 
@@ -312,7 +305,7 @@ void RoboCtrl::imageCb(const sensor_msgs::ImageConstPtr &msg)
     int y = mu.m01 / mu.m00;
     ROS_INFO("AREA: %f", area);
 
-    if ((x >= 0) && (x <= 400) && (area > 40000) )
+    if ((x >= 0) && (x <= 400) && (area > 40000) && (dest_point_ >= PNT_START_CHASE) )
     {
         // 敵が見つかったら追跡する
         diff_position_ = x - centerpnt;
@@ -320,23 +313,27 @@ void RoboCtrl::imageCb(const sensor_msgs::ImageConstPtr &msg)
         // STATE_CHASEに入る前の状態を保存
         switch (state_)
         {
+        /* ここは入らない */
         case STATE_WAYPOINT:
             cancelWaypoint();
             laststate = STATE_IDLE;
             break;
-
+        
         case STATE_IDLE:
             laststate = STATE_IDLE;
             time_approach_run_ = ros::Time::now();
             break;
 
+        /* ここは入らない */
         case STATE_RETREAT:
             laststate = STATE_IDLE;
             break;
 
+        /* ここは入らない */
         case STATE_BACK:
             laststate = STATE_IDLE;
             break;
+        
 
         default:
             break;
