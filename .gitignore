@@ -2,6 +2,8 @@
 *.swp
 *.pyc
 
+.vscode/
+_reference/
 onigiri_war_judge/log/*
 !.gitkeep
 
