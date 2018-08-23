@@ -12,6 +12,6 @@
       <!-- Your robot control node run -->
       <include file="$(find onigiri_war)/launch/your_onigiri.launch" />
   </group>
-      <include file="$(find onigiri_navigation)/launch/navigation.launch"/>
+      <!-- <include file="$(find onigiri_navigation)/launch/navigation.launch"/> -->
 </launch>
 

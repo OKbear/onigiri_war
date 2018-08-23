@@ -6,7 +6,7 @@
 
 
     <!-- Robot Control -->
-    <node pkg="onigiri_navigation" type="wp_robo" name="robo_ctrl" output="screen"/>
+    <node pkg="onigiri_navigation" type="no_wp_robo" name="robo_ctrl" output="screen"/>
 
 
 

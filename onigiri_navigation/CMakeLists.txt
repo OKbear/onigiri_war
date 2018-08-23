@@ -207,3 +207,7 @@ include_directories(
 add_executable(wp_robo src/wp_robo.cpp)
 target_link_libraries(wp_robo ${catkin_LIBRARIES})
 target_link_libraries(wp_robo ${catkin_LIBRARIES} /opt/ros/kinetic/lib/x86_64-linux-gnu/libopencv_highgui3.so)
+
+add_executable(no_wp_robo src/no_wp_robo.cpp)
+target_link_libraries(no_wp_robo ${catkin_LIBRARIES})
+target_link_libraries(no_wp_robo ${catkin_LIBRARIES} /opt/ros/kinetic/lib/x86_64-linux-gnu/libopencv_highgui3.so)
