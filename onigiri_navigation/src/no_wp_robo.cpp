@@ -167,40 +167,88 @@ void RoboCtrl::moveRobo()
         if( ros::Time::now() - time_kimeuchi > ros::Duration(time_before_next_run) )
         {
             switch( ++phase ){
+                // 正面のマーカー
                 case 1:
                     front_speed_ = 1.0;
                     turn_speed_ = 0.0;
                     time_before_next_run = 3.0;
                     break;
+                // ちょっと引く
                 case 2:
                     front_speed_ = -1.0;
                     turn_speed_ = 0.0;
                     time_before_next_run = 0.7;
                     break;
+                // 左に方向転換
                 case 3:
                     front_speed_ = 0.0;
                     turn_speed_ = 0.5;
                     time_before_next_run = 1.5;
                     break;
+                // 正面と左の柱を抜ける
                 case 4:
                     front_speed_ = 1.0;
                     turn_speed_ = 0.0;
                     time_before_next_run = 2.2;
                     break;
+                // 中央の柱を左から見ようとする
                 case 5:
                     front_speed_ = 0.0;
-                    turn_speed_ = -0.5;
-                    time_before_next_run = 4.6;
+                    turn_speed_ = -1.0;
+                    time_before_next_run = 2.3;
                     break;
+                // 中央左のマーカー
                 case 6:
                     front_speed_ = 1.0;
                     turn_speed_ = 0.0;
                     time_before_next_run = 0.7;
                     break;
+                // ちょっと引く
                 case 7:
+                    front_speed_ = -1.0;
+                    turn_speed_ = 0.0;
+                    time_before_next_run = 0.7;
+                    break;
+                // 方向転換
+                case 8:
+                    front_speed_ = 0.0;
+                    turn_speed_ = 0.5;
+                    time_before_next_run = 3.0;
+                    break;
+                // 左上柱のマーカーへ
+                case 9:
+                    front_speed_ = 1.0;
+                    turn_speed_ = 0.0;
+                    time_before_next_run = 1.0;
+                    break;
+                // ちょっと引く
+                case 10:
+                    front_speed_ = -1.0;
+                    turn_speed_ = 0.0;
+                    time_before_next_run = 0.7;
+                    break;
+                // 左下柱のマーカーに向く
+                case 11:
+                    front_speed_ = 0.0;
+                    turn_speed_ = -1.0;
+                    time_before_next_run = 3.0;
+                    break;
+                // 左上柱のマーカーへ
+                case 12:
+                    front_speed_ = 1.0;
+                    turn_speed_ = 0.0;
+                    time_before_next_run = 1.2;
+                    break;
+                // ちょっと引く
+                case 13:
+                    front_speed_ = -1.0;
+                    turn_speed_ = 0.0;
+                    time_before_next_run = 0.3;
+                    break;
+                case 14:
                     front_speed_ = 0.0;
                     turn_speed_ = 1.0;
-                    time_before_next_run = 2.5;
+                    time_before_next_run = 3.2;
                     break;
                 default:
                     state_ = STATE_IDLE;
